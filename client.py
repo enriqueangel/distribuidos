@@ -38,12 +38,9 @@ def Archivos_compartidos(directorio):
         lista_archivos.append(archivo)
     return lista_archivos
 
-#El clientre seleccionar la carpeta que va a compartir
+#Carpeta que se va a compartir
 def Seleccionar_carpeta():
-    root = Tkinter.Tk()  #Manejo de la ventana, para seleccionar la carpeta.
-    root.withdraw()  #Cerrar la ventana una vez se alla seleccionado la carpeta.
-    file_path = tkFileDialog.askdirectory() #Se guarda la ruta en esta variable.
-    return file_path
+    return '/compartido'
 
 def Menu_operaciones_archivo():
     print '\nEscoja una opcion.'
@@ -61,7 +58,8 @@ def Menu_lista_archivos(archivos):
 
 
 #Conectandose al servidor.
-op = xmlrpclib.ServerProxy('http://192.168.9.125:9999') #Ensallar con la direccion ip del servidor.
+print 'hola'
+op = xmlrpclib.ServerProxy('http://192.168.8.184:9999') #Ensallar con la direccion ip del servidor.
 carpeta = Seleccionar_carpeta()
 lista_archivos = Archivos_compartidos(carpeta)
 ip, puerto, lista_archivo = op.Crear_cliente(carpeta, lista_archivos)
@@ -111,6 +109,3 @@ while True:   #LOS PERMISOS PARA LOS ARCHIVOS SON 0 = NINGUNO, 1 = LECTURA, 2 = 
                 print mensaje
             else:
                 print "el archivo se encuentra ocupado."
-
-
-
