@@ -13,9 +13,9 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
 
 
 def Mostrar_direccion(ip):
-    carpeta = ""
+    carpeta = '.\compartido'
     puerto = 0
-    dato = Manejo(ip[0], carpeta, puerto)
+    dato = Manejo(ip[0], carpeta, puerto, 0, 0)
     Clientes_conectados.append(dato)
 
 
@@ -23,57 +23,95 @@ def Mostrar_direccion(ip):
 #Clase para le manejo de direcciones y directorios.
 class Manejo:
 
-    def __init__ (self, direccion_ip, carpeta, puerto):
+    def __init__ (self, direccion_ip, carpeta, puerto, archivo, espacio):
         self.ip = direccion_ip
         self.directorio = carpeta
         self.puerto = puerto
-        self.archivos = 0
+        self.archivos = archivo
+        self.espacio = espacio
 
 class Manejo_archivo_servidor:
-    def __init__(self, ip, puerto, path, archivo):
+    def __init__(self, ip, puerto, archivo):
         self.ip = ip
-        self.directorio = path
         self.puerto = puerto
         self.archivos = archivo
         self.ocupado = 0
+        self.copia = [] 
 
-class Manejo_archivo_cliente:
-    def __init__(self, archivo, permiso,):
-        self.archivo = archivo
-        self.permiso = permiso
+    def CrearCopia(self,ListaClientes):
+        ClientesLLenos = []
+        while True:
+            if len(ListaClientes) == 1:
+                break
+            else:
+                cliente = random.randint(0,len(ListaClientes)-1)
+                if(ListaClientes[cliente].espacio < 10 and (ListaClientes[cliente].ip != self.ip or ListaClientes[cliente].puerto != self.puerto)):
+                    IpCliente = ListaClientes[cliente].ip
+                    PuertoCliente = ListaClientes[cliente].puerto
+                    s = xmlrpclib.ServerProxy('http://'+str(IpCliente)+':'+str(PuertoCliente))
+                    ContenidoArchivo = s.MandarArchivo(self.archivos)
+                    Mensaje = s.CrearCopia(self.archivos, ContenidoArchivo)
+                    print Mensaje
+                    ListaClientes[cliente].espacio += 1
+                    copia = [ListaClientes[cliente].ip, ListaClientes[cliente].puerto]
+                    self.copia.append(copia)
+                    break
+                else:
+                    if(len(ListaClientes) == len(ClientesLLenos)):
+                        break
+                    else:
+                        bandera = False
+                        for i in ClientesLLenos:
+                            if cliente == i:
+                                bandera = True
+                                break
+                        if not(bandera):
+                            ClientesLLenos.append(cliente)
+
 
 
 #Clase con los metodos a utilizar.
 class clase:
 
     #Cuando el cliente se conecte con el servidor definira la carpeta que compartira los archivos y guardamos las archivos que a a compartir.
-    def Crear_cliente(self, carpeta, lista_archivos):
+    def Crear_cliente(self, lista_archivos):
         global Clientes_conectados
+        global ClientesActivos
         global Lista_global_archivos
         lista_archivos_cliente = []
         i = len(Clientes_conectados)
-        puerto = 9999 - i
-        Clientes_conectados[i-1].directorio = carpeta
-        Clientes_conectados[i-1].puerto = puerto
-        Clientes_conectados[i-1].archivos = lista_archivos
         ip = Clientes_conectados[i-1].ip
+        puerto = 9999 - i
+        directorio = ".\compartido"
+        espacio = len(lista_archivos)
+        dato = Manejo(ip, directorio, puerto, lista_archivos, espacio)
+        ClientesActivos.append(dato)
         self.Agregar_archivos_globales(ip, puerto,lista_archivos, Lista_global_archivos, lista_archivos_cliente)
         return ip, puerto, lista_archivos_cliente
 
 
     def Agregar_archivos_globales(self, ip, puerto, lista_archivos, Lista_global_archivos, lista_archivos_cliente):
         for j in Lista_global_archivos:
-            permiso = random.randint(0,2)
-            archivo_copia = Manejo_archivo_cliente(j.archivos, permiso)
+            archivo_copia = j.archivos
             lista_archivos_cliente.append(archivo_copia)
         for i in lista_archivos:
-            path = i["directorio"]
-            for n in i["nombre_archivo"]:
-                archivo = Manejo_archivo_servidor(ip, puerto, path, n)
-                Lista_global_archivos.append(archivo)
-                archivo_cliente = Manejo_archivo_cliente(n, 2)
-                lista_archivos_cliente.append(archivo_cliente)
+            archivo = Manejo_archivo_servidor(ip, puerto, i)
+            Lista_global_archivos.append(archivo)
+            archivo_cliente = i
+            lista_archivos_cliente.append(archivo_cliente)
+            print archivo
         return Lista_global_archivos, lista_archivos_cliente
+
+    def CrearCopias(self, lista_archivos, ip, puerto):
+        global ClientesActivos
+        global Lista_global_archivos
+        for i in lista_archivos:
+            for n in Lista_global_archivos:
+                if(n.ip == ip and n.puerto == puerto and n.archivos == i):
+                    n.CrearCopia(ClientesActivos)
+                    n.CrearCopia(ClientesActivos)
+        return "copias guardadas satisfactoriamente"
+
 
 
     def Comparar_archivos(self, lista_archivos_cliente):
@@ -169,33 +207,12 @@ class clase:
 
 
 #creando servidor.
-server = SimpleXMLRPCServer(("192.168.0.6", 9999), requestHandler=RequestHandler)
+server = SimpleXMLRPCServer(("192.168.9.72", 9999), requestHandler=RequestHandler)
 server.register_introspection_functions()
 server.register_instance(clase())
 Clientes_conectados = [] #Lista de clientes conectados al servidor.
+ClientesActivos = []
 Lista_global_archivos = []#Lista donde se encuentran todos los archivos que comparten todos los clientes.
 #Este hilo se ecnarga de recibir nuevos clientes y la carpeta a compartir.
 t = threading.Thread(target=server.serve_forever)
 t.start()
-
-
-
-#ensallo = True
-#while ensallo == True:
-#    if len(Clientes_conectados) > 0:
-#        for i in Clientes_conectados:
-#            direccion = i.directorio
-#            if (direccion != ""):
-#                for n in Lista_global_archivos:
-#                    print n.archivos
-                # for n in i.archivos:
-                #     print n['directorio']
-                #     #print n.directorio[0]
-                #     print n['nombre_archivo'][0]
-                # puerto = i.puerto
-                # ip = i.ip
-                # #print ip
-                # #print 'http://'+str(ip)+':'+str(puerto)
-                # s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto)) #Aqui toca ensallar con la direccion desde otro pc.
-                # s.Archivos_compartidos(direccion)
-                #ensallo = False
