@@ -31,12 +31,12 @@ class Manejo:
         self.espacio = espacio
 
 class Manejo_archivo_servidor:
-    def __init__(self, ip, puerto, archivo):
+    def __init__(self, ip, puerto, archivo, tsl):
         self.ip = ip
         self.puerto = puerto
         self.archivos = archivo
-        self.ocupado = 0
-        self.copia = [] 
+        self.copia = []
+        self.tsl = tsl
 
     def CrearCopia(self,ListaClientes):
         ClientesLLenos = []
@@ -89,13 +89,19 @@ class clase:
         self.Agregar_archivos_globales(ip, puerto,lista_archivos, Lista_global_archivos, lista_archivos_cliente)
         return ip, puerto, lista_archivos_cliente
 
-
     def Agregar_archivos_globales(self, ip, puerto, lista_archivos, Lista_global_archivos, lista_archivos_cliente):
+        global ClientesActivos
+        f = len(ClientesActivos) - 1
         for j in Lista_global_archivos:
             archivo_copia = j.archivos
             lista_archivos_cliente.append(archivo_copia)
         for i in lista_archivos:
-            archivo = Manejo_archivo_servidor(ip, puerto, i)
+            tsl = ".\compartido/tsl"+i
+            archivo = open('.\compartido/tsl' + i, 'w')
+            archivo.write("0")
+            archivo.close()
+            archivo = Manejo_archivo_servidor(ip, puerto, i, tsl)
+            ClientesActivos[f].espacio += 1
             Lista_global_archivos.append(archivo)
             archivo_cliente = i
             lista_archivos_cliente.append(archivo_cliente)
@@ -112,8 +118,6 @@ class clase:
                     n.CrearCopia(ClientesActivos)
         return "copias guardadas satisfactoriamente"
 
-
-
     def Comparar_archivos(self, lista_archivos_cliente):
         global Lista_global_archivos
         i = len(lista_archivos_cliente)
@@ -123,11 +127,9 @@ class clase:
         if(i < n):
             while i < n:
                 nombre = Lista_global_archivos[i].archivos
-                permiso = random.randint(0,2)
-                archivo = Manejo_archivo_cliente(nombre, permiso)
+                archivo = nombre
                 lista_archivos_cliente.append(archivo)
                 i = i + 1
-            print len(lista_archivos_cliente)
             return lista_archivos_cliente
         if(i > n):
             a= 0
@@ -135,7 +137,7 @@ class clase:
             while n != i:
                 if(b < n): 
                     nombre_servidor = Lista_global_archivos[a].archivos
-                    nombre_cliente = lista_archivos_cliente[b]['archivo']
+                    nombre_cliente = lista_archivos_cliente[b]
                     if(nombre_cliente == nombre_servidor):
                         a = a+1
                         b= b+1
@@ -149,44 +151,70 @@ class clase:
                         i = i-1
             return lista_archivos_cliente
 
-
     def Abrir_archivo(self, indice):
         global Lista_global_archivos
         ip = Lista_global_archivos[indice].ip
         puerto = Lista_global_archivos[indice].puerto
-        directorio = Lista_global_archivos[indice].directorio
+        directorio = '.\compartido'
         nombre = Lista_global_archivos[indice].archivos
         s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
         contenido = s.Envio_contenido(directorio, nombre)
         return contenido
 
-
     def Abrir_archivo_escritura(self, indice):
-        global Lista_global_archivos
-        if(Lista_global_archivos[indice].ocupado == 0):  
-            ip = Lista_global_archivos[indice].ip
-            puerto = Lista_global_archivos[indice].puerto
-            directorio = Lista_global_archivos[indice].directorio
-            nombre = Lista_global_archivos[indice].archivos
-            Lista_global_archivos[indice].ocupado = 1
-            s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
-            contenido = s.Envio_contenido(directorio, nombre)
-            return contenido
-        else:
-            return False
-
+        global Lista_global_archivos 
+        ip = Lista_global_archivos[indice].ip
+        puerto = Lista_global_archivos[indice].puerto
+        directorio = '.\compartido'
+        nombre = Lista_global_archivos[indice].archivos
+        s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
+        contenido = s.Envio_contenido(directorio, nombre)
+        return contenido
 
     def Modificar_archivo(self,contenido, indice):
         global Lista_global_archivos
         ip = Lista_global_archivos[indice].ip
         puerto = Lista_global_archivos[indice].puerto
-        directorio = Lista_global_archivos[indice].directorio
+        directorio = directorio = '.\compartido'
         nombre = Lista_global_archivos[indice].archivos
         s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
         actualizado = s.Actualizar_contenido(directorio, nombre, contenido)
-        Lista_global_archivos[indice].ocupado = 0
         return actualizado
 
+    def ModficiarCopias(self,contenido, indice):
+        global Lista_global_archivos
+        ip = Lista_global_archivos[indice].ip
+        puerto = Lista_global_archivos[indice].puerto
+        directorio = directorio = '.\compartido'
+        if len(Lista_global_archivos[indice].copia) > 0:
+            for i in Lista_global_archivos[indice].copia:
+                nombre = "copia"+Lista_global_archivos[indice].archivos
+                s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
+                actualizado = s.ActualizarCopia(directorio, nombre, contenido)
+                print actualizado
+        else: 
+            print "No tiene copias para actualizar"
+        return True
+
+    def Tsl(self, indice):
+        global Lista_global_archivos
+        ip = Lista_global_archivos[indice].ip
+        puerto = Lista_global_archivos[indice].puerto
+        directorio = directorio = '.\compartido'
+        nombre = "tsl"+Lista_global_archivos[indice].archivos
+        s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
+        permiso = s.Tsl(directorio, nombre)
+        return permiso
+
+    def TslLibre(self, indice):
+        global Lista_global_archivos
+        ip = Lista_global_archivos[indice].ip
+        puerto = Lista_global_archivos[indice].puerto
+        directorio = directorio = '.\compartido'
+        nombre = "tsl"+Lista_global_archivos[indice].archivos
+        s = xmlrpclib.ServerProxy('http://'+str(ip)+':'+str(puerto))
+        permiso = s.TslLibre(directorio, nombre)
+        return permiso
 
 
     def Salir(self, ip, puerto):
@@ -207,7 +235,7 @@ class clase:
 
 
 #creando servidor.
-server = SimpleXMLRPCServer(("192.168.9.72", 9999), requestHandler=RequestHandler)
+server = SimpleXMLRPCServer(("192.168.0.5", 9999), requestHandler=RequestHandler)
 server.register_introspection_functions()
 server.register_instance(clase())
 Clientes_conectados = [] #Lista de clientes conectados al servidor.
